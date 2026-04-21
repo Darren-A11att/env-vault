@@ -13,6 +13,7 @@ import {
   identityForgetCmd,
   identityShowCmd,
 } from './commands/identity.js';
+import { uiCmd } from './commands/ui.js';
 
 const program = new Command();
 
@@ -20,7 +21,7 @@ program
   .name('envault')
   .description('OS-native SQLite secrets vault with SSH-key master.')
   .enablePositionalOptions()
-  .version('0.2.0');
+  .version('0.3.0');
 
 program
   .command('init')
@@ -37,11 +38,12 @@ program
   });
 
 program
-  .command('set <name> <value>')
+  .command('set <name> [value]')
   .description('Store or update a secret')
-  .action((name: string, value: string) => {
+  .option('--stdin', 'Read the value from stdin (avoids shell-history leak)')
+  .action(async (name: string, value: string | undefined, opts: { stdin?: boolean }) => {
     try {
-      setCmd(name, value);
+      await setCmd(name, value, opts);
     } catch (err) {
       console.error(`envault set: ${(err as Error).message}`);
       process.exit(1);
@@ -166,6 +168,20 @@ identity
       identityShowCmd();
     } catch (err) {
       console.error(`envault identity show: ${(err as Error).message}`);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('ui')
+  .description('Launch the local browser UI (wave 1 walking skeleton).')
+  .option('--port <n>', 'Bind to a specific port (default: OS picks a free port)')
+  .option('--no-open', 'Do not automatically open a browser window')
+  .action(async (opts: { port?: string; open?: boolean }) => {
+    try {
+      await uiCmd(opts);
+    } catch (err) {
+      console.error(`envault ui: ${(err as Error).message}`);
       process.exit(1);
     }
   });

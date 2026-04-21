@@ -1,6 +1,6 @@
 {
   "name": "@darrenallatt/env-vault",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "OS-native SQLite secrets vault with SSH-key master. Replace plaintext API keys in .env with pseudokeys; resolve at runtime.",
   "license": "MIT",
   "author": "Darren Allatt",
@@ -21,6 +21,7 @@
   },
   "files": [
     "dist",
+    "dist/ui/public/**",
     "README.md",
     "LICENSE"
   ],
@@ -28,9 +29,9 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-static.mjs",
     "dev": "tsc --watch",
-    "test": "node --test --experimental-strip-types test/*.test.ts",
+    "test": "node --test --experimental-strip-types --import ./scripts/ts-loader-register.mjs test/*.test.ts",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {

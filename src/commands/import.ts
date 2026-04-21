@@ -1,8 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import dotenv from 'dotenv';
 import { Vault } from '../vault.js';
-import { isPseudokey } from '../pseudokey.js';
+import { parseAndImport, type ImportMapping } from '../lib/importEnv.js';
 
 export function importCmd(envFile: string, opts: { replace?: boolean } = {}): void {
   const resolved = path.resolve(envFile);
@@ -11,32 +10,28 @@ export function importCmd(envFile: string, opts: { replace?: boolean } = {}): vo
     process.exit(1);
   }
   const raw = fs.readFileSync(resolved, 'utf8');
-  const parsed = dotenv.parse(raw);
-  const names = Object.keys(parsed);
-  if (names.length === 0) {
-    console.error(`no key=value pairs parsed from ${resolved}`);
-    process.exit(1);
-  }
 
   const vault = Vault.open();
-  const mappings: Array<{ name: string; pseudokey: string; skipped: boolean }> = [];
+  let result;
   try {
-    for (const name of names) {
-      const value = parsed[name];
-      if (isPseudokey(value)) {
-        mappings.push({ name, pseudokey: value, skipped: true });
-        continue;
-      }
-      const { pseudokey } = vault.set(name, value);
-      mappings.push({ name, pseudokey, skipped: false });
-    }
+    result = parseAndImport(raw, vault);
   } finally {
     vault.close();
   }
 
-  const imported = mappings.filter((m) => !m.skipped).length;
-  const skipped = mappings.length - imported;
-  console.log(`imported ${imported} secrets${skipped > 0 ? ` (${skipped} already pseudokeys, skipped)` : ''}.`);
+  if (result.mappings.length === 0 && result.rejected.length === 0) {
+    console.error(`no key=value pairs parsed from ${resolved}`);
+    process.exit(1);
+  }
+
+  for (const r of result.rejected) {
+    console.error(`skipping ${r.name}: ${r.reason}`);
+  }
+
+  const { imported, skipped, mappings } = result;
+  console.log(
+    `imported ${imported} secrets${skipped > 0 ? ` (${skipped} already pseudokeys, skipped)` : ''}.`,
+  );
 
   if (opts.replace) {
     const rewritten = rewriteEnvFile(raw, mappings);
@@ -52,7 +47,7 @@ export function importCmd(envFile: string, opts: { replace?: boolean } = {}): vo
   }
 }
 
-function rewriteEnvFile(raw: string, mappings: Array<{ name: string; pseudokey: string }>): string {
+function rewriteEnvFile(raw: string, mappings: Array<ImportMapping>): string {
   const lookup = new Map(mappings.map((m) => [m.name, m.pseudokey]));
   const lines = raw.split(/\r?\n/);
   const out: string[] = [];

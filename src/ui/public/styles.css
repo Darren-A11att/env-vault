@@ -1,0 +1,217 @@
+/* envault UI — shared stylesheet. Wave-2 agents scope selectors with a
+ * slice-specific prefix to avoid collisions:
+ *   - B2 (reveal): `reveal-*`
+ *   - B3 (import): `import-*`
+ */
+
+/* ---------- B2 (reveal) ---------- */
+
+.reveal-widget {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.reveal-button {
+  font: inherit;
+  padding: 0.35rem 0.75rem;
+  background: var(--accent, #0366d6);
+  color: #fff;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  cursor: pointer;
+}
+
+.reveal-button:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.reveal-countdown {
+  color: var(--muted, #6a6a6a);
+  font-family: ui-monospace, SF Mono, Menlo, Consolas, monospace;
+  font-size: 12px;
+  min-width: 7ch;
+}
+
+.reveal-value {
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  background: var(--bar-bg, #fff);
+  color: var(--fg, #1a1a1a);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 0.35rem;
+  font-family: ui-monospace, SF Mono, Menlo, Consolas, monospace;
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-width: 100%;
+}
+
+/* When hidden the element is display:none via [hidden], but we also mark the
+ * class so CSS audits / screen readers have a stable signal. user-select:none
+ * stops inspect-on-hover from accidentally surfacing the mask glyph as a
+ * selection. */
+.reveal-value.reveal-hidden {
+  user-select: none;
+  -webkit-user-select: none;
+  color: var(--muted, #6a6a6a);
+}
+
+.reveal-error {
+  color: var(--error, #b91c1c);
+  font-size: 12px;
+}
+
+/* ---------- B3 (import) ---------- */
+
+.import-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.import-overlay-inner {
+  padding: 1.5rem 2rem;
+  border: 2px dashed var(--accent, #0366d6);
+  border-radius: 12px;
+  background: var(--bar-bg, #fff);
+  color: var(--fg, #1a1a1a);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.import-panel {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--bar-bg, #fff);
+}
+
+.import-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.import-title {
+  font-weight: 600;
+}
+
+.import-close {
+  font: inherit;
+  padding: 0.3rem 0.65rem;
+  background: transparent;
+  color: var(--muted, #6a6a6a);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.import-close:hover { color: var(--fg); border-color: var(--muted); }
+
+.import-warning {
+  padding: 0.55rem 0.75rem;
+  margin-bottom: 0.75rem;
+  background: rgba(255, 107, 107, 0.08);
+  border: 1px solid var(--error, #b91c1c);
+  border-radius: 6px;
+  color: var(--error, #b91c1c);
+  font-size: 13px;
+}
+
+.import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.import-table th,
+.import-table td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.import-table th {
+  font-weight: 500;
+  color: var(--muted, #6a6a6a);
+  font-size: 12px;
+}
+
+.import-row-invalid {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.import-name {
+  font-family: ui-monospace, SF Mono, Menlo, Consolas, monospace;
+}
+
+.import-value {
+  font-family: ui-monospace, SF Mono, Menlo, Consolas, monospace;
+  color: var(--muted, #6a6a6a);
+  word-break: break-all;
+}
+
+.import-pk {
+  font-family: ui-monospace, SF Mono, Menlo, Consolas, monospace;
+}
+
+.import-pk-value {
+  padding: 0.15rem 0.4rem;
+  background: rgba(110, 168, 254, 0.12);
+  border-radius: 4px;
+}
+
+.import-copy {
+  margin-left: 0.5rem;
+  font: inherit;
+  font-size: 11px;
+  padding: 0.2rem 0.5rem;
+  background: transparent;
+  color: var(--muted, #6a6a6a);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.import-copy:hover { color: var(--fg); border-color: var(--muted); }
+
+.import-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.import-submit {
+  font: inherit;
+  padding: 0.45rem 0.9rem;
+  background: var(--accent, #0366d6);
+  color: #fff;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.import-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.import-status {
+  font-size: 12px;
+  color: var(--muted, #6a6a6a);
+}
+
+.import-status-error {
+  color: var(--error, #b91c1c);
+}

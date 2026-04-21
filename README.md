@@ -41,17 +41,22 @@ Pseudokeys (e.g. `envault-71918db9`) are short tokens stored alongside each secr
 
 ```
 envault init [--reuse <path>] [--force]
-envault set <NAME> <VALUE>
+envault set <NAME> [VALUE] [--stdin]
 envault get <NAME> [--pseudokey]
 envault list [--json]
 envault rm <NAME>
 envault import <.env> [--replace]
 envault export --to-env
 envault run [--env-file <path>] [--no-load-env] [--no-intercept] -- <cmd> [args...]
+envault ui [--port <n>] [--no-open]
 envault identity unlock         # cache the derived X25519 scalar after a passphrase prompt
 envault identity forget         # delete the cached scalar
 envault identity show           # fingerprint + cache status
 ```
+
+### Avoiding shell history leaks
+
+Values passed on argv end up in your shell history. For real secrets, pipe the value in via `--stdin` instead: `echo "$KIMI_API_KEY" | envault set KIMI_API_KEY --stdin`.
 
 ## Cross-machine sync
 
@@ -89,6 +94,29 @@ Scope in v0.2:
 
 Security tradeoff: the interceptor pre-loads all decrypted secrets into the Node process memory at install time (fast fetch path, no per-call keystore round-trip). This is strictly worse than plain `envault run --` for memory exposure. Use the interceptor for harnesses you trust in-process but can't rewrite the config of. Paranoid workloads stick with the env-var model.
 
+## Web UI (`envault ui`)
+
+Manage secrets in a browser instead of the CLI — add, rename, update, delete, and briefly reveal a value. Useful for pasting a real API key without leaking it to shell history, and for sharing a copy-button on the pseudokey.
+
+```bash
+envault ui                 # prints the URL and opens a browser tab
+envault ui --no-open       # just prints the URL (copy/paste manually)
+envault ui --port 5555     # pin a specific port (default: OS picks one)
+```
+
+Security posture:
+
+- Binds to `127.0.0.1` only. Refuses non-loopback `Host` headers as a defence-in-depth against DNS rebinding.
+- Random ephemeral port on every launch (no persistent port, no bookmarkability).
+- Single-use session token minted at server start and delivered in the URL fragment (`…/#t=<hex>`). Fragments aren't sent on the initial HTTP request, so the token never hits server logs. The page reads it from `location.hash`, strips the fragment from the address bar, and attaches it to every `fetch` via an `x-envault-token` header.
+- `Cache-Control: no-store` and `X-Content-Type-Options: nosniff` on every response.
+- Decrypted values are **never** listed. Each reveal requires (a) the session token **and** (b) a fresh, single-use, 10-second-TTL nonce minted by a separate `POST /api/reveal/nonce` — so a compromised page load can't silently exfiltrate every value. The revealed value is shown for 15 seconds, then the DOM text node is replaced (not cleared) so the plaintext doesn't linger.
+- Auto-shutdown after 15 minutes of no request activity; `Ctrl-C` exits cleanly.
+
+Drag-and-drop a `.env` onto the window to preview parsed entries (values masked) with checkboxes; confirm to import and get pseudokeys back.
+
+See [docs/UAT.md](docs/UAT.md) for the full acceptance-test walkthrough (includes a pi + Kimi end-to-end covering the env-var path, the pseudokey-in-`.env` path, and the fetch-interceptor path).
+
 ## Library API
 
 ```ts
@@ -115,6 +143,8 @@ vault.close();
 - `envault export --to-env` dumps plaintext to stdout; use only for migration or debugging, never redirect to a file unless you plan to delete it.
 
 ## Roadmap
+
+**Shipped in 0.3:** Web UI (`envault ui`), `--stdin` flag on `envault set`.
 
 **Shipped in 0.2:** OS-keychain caching of the derived scalar (silent unlock), Node fetch interceptor via `envault/register`.
 

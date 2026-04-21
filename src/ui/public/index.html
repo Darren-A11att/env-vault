@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>envault</title>
+    <!-- Inline SVG favicon: a minimal padlock glyph. Data URL means the browser
+         never issues a network request for /favicon.ico, so we don't log a
+         404 on every page load. -->
+    <link rel="icon" href="data:image/svg+xml;utf8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2016%2016%22%3E%3Crect%20x%3D%223%22%20y%3D%227%22%20width%3D%2210%22%20height%3D%227%22%20rx%3D%221%22%20fill%3D%22%236ea8fe%22%2F%3E%3Cpath%20d%3D%22M5%207V5a3%203%200%200%201%206%200v2%22%20fill%3D%22none%22%20stroke%3D%22%236ea8fe%22%20stroke-width%3D%221.5%22%2F%3E%3Ccircle%20cx%3D%228%22%20cy%3D%2210.5%22%20r%3D%221%22%20fill%3D%22%230f1115%22%2F%3E%3C%2Fsvg%3E" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0f1115;
+        --fg: #e6e6e6;
+        --muted: #8a8f98;
+        --accent: #6ea8fe;
+        --error: #ff6b6b;
+        --ok: #7cd992;
+        --border: #23262d;
+        --bar-bg: #171a1f;
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #fafafa;
+          --fg: #1a1a1a;
+          --muted: #6a6a6a;
+          --accent: #0366d6;
+          --error: #b91c1c;
+          --ok: #15803d;
+          --border: #e5e7eb;
+          --bar-bg: #ffffff;
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      }
+      header.topbar {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 0.75rem 1.25rem;
+        background: var(--bar-bg);
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+      }
+      .brand {
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+      .meta {
+        display: flex;
+        gap: 1.25rem;
+        color: var(--muted);
+        font-family: ui-monospace, SF Mono, Menlo, Consolas, monospace;
+        font-size: 12px;
+      }
+      .meta strong {
+        color: var(--fg);
+        font-weight: 500;
+        margin-left: 0.35rem;
+      }
+      .cache-present { color: var(--ok); }
+      .cache-absent { color: var(--muted); }
+      .error {
+        color: var(--error);
+      }
+      main {
+        padding: 1.5rem 1.25rem;
+        max-width: 72rem;
+        margin: 0 auto;
+      }
+      main p {
+        color: var(--muted);
+      }
+
+      /* ---- CRUD slice (B1) ------------------------------------------- */
+      .crud-root {
+        display: grid;
+        grid-template-columns: minmax(260px, 22rem) 1fr;
+        gap: 1.25rem;
+        align-items: start;
+      }
+      @media (max-width: 720px) {
+        .crud-root {
+          grid-template-columns: 1fr;
+        }
+      }
+      .crud-sidebar {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bar-bg);
+        overflow: hidden;
+      }
+      .crud-sidebar-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border);
+      }
+      .crud-sidebar-title {
+        font-weight: 600;
+      }
+      .crud-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        max-height: 60vh;
+        overflow: auto;
+      }
+      .crud-empty {
+        padding: 1rem;
+        margin: 0;
+        color: var(--muted);
+      }
+      .crud-row {
+        display: flex;
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+      }
+      .crud-row:last-child { border-bottom: none; }
+      .crud-row-active { background: rgba(110, 168, 254, 0.08); }
+      .crud-row-main {
+        flex: 1;
+        text-align: left;
+        padding: 0.6rem 1rem;
+        background: transparent;
+        color: inherit;
+        border: 0;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+        font: inherit;
+      }
+      .crud-row-main:hover { background: rgba(255, 255, 255, 0.03); }
+      .crud-row-name { font-weight: 500; }
+      .crud-row-pk {
+        color: var(--muted);
+        font-family: ui-monospace, SF Mono, Menlo, Consolas, monospace;
+        font-size: 12px;
+      }
+      .crud-copy {
+        margin-right: 0.6rem;
+        padding: 0.3rem 0.6rem;
+        font-size: 11px;
+        font-family: ui-monospace, SF Mono, Menlo, Consolas, monospace;
+        background: transparent;
+        color: var(--muted);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .crud-copy:hover { color: var(--fg); border-color: var(--muted); }
+      .crud-detail,
+      .crud-placeholder {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bar-bg);
+        padding: 1.25rem;
+      }
+      .crud-placeholder p { margin: 0; color: var(--muted); }
+      .crud-detail-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 1rem;
+        margin-bottom: 0.5rem;
+      }
+      .crud-detail-title {
+        margin: 0 0 0.75rem;
+        font-size: 1.05rem;
+        letter-spacing: -0.01em;
+      }
+      .crud-pk {
+        color: var(--muted);
+        font-family: ui-monospace, SF Mono, Menlo, Consolas, monospace;
+        font-size: 12px;
+      }
+      .crud-hint {
+        color: var(--muted);
+        margin: 0 0 1rem;
+        font-size: 12px;
+      }
+      .crud-label {
+        display: block;
+        margin-bottom: 0.9rem;
+      }
+      .crud-label > span {
+        display: block;
+        margin-bottom: 0.25rem;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .crud-input,
+      .crud-textarea {
+        width: 100%;
+        padding: 0.5rem 0.6rem;
+        background: var(--bg);
+        color: var(--fg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        font: inherit;
+      }
+      .crud-textarea {
+        font-family: ui-monospace, SF Mono, Menlo, Consolas, monospace;
+        font-size: 13px;
+        resize: vertical;
+      }
+      .crud-input:focus,
+      .crud-textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      .crud-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .crud-btn {
+        padding: 0.45rem 0.85rem;
+        background: transparent;
+        color: var(--fg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        cursor: pointer;
+        font: inherit;
+      }
+      .crud-btn:hover:not(:disabled) { border-color: var(--muted); }
+      .crud-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .crud-btn-accent {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #0b1220;
+      }
+      .crud-btn-accent:hover:not(:disabled) { filter: brightness(1.05); }
+      .crud-btn-danger {
+        border-color: var(--error);
+        color: var(--error);
+      }
+      .crud-btn-danger:hover:not(:disabled) { background: rgba(255, 107, 107, 0.08); }
+      .crud-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        z-index: 10;
+      }
+      .crud-dialog {
+        background: var(--bar-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 1.25rem;
+        max-width: 28rem;
+        width: 100%;
+      }
+      .crud-dialog-title {
+        margin: 0 0 0.75rem;
+        font-size: 1rem;
+      }
+      .crud-toast {
+        position: fixed;
+        bottom: 1rem;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 0.5rem 0.9rem;
+        border-radius: 6px;
+        background: var(--bar-bg);
+        border: 1px solid var(--border);
+        font-size: 13px;
+        z-index: 20;
+      }
+      .crud-toast-error { border-color: var(--error); color: var(--error); }
+      .crud-toast-ok { border-color: var(--ok); color: var(--ok); }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">envault</div>
+      <div class="meta" id="identity-bar">
+        <span>fingerprint:<strong id="fp">…</strong></span>
+        <span>cache:<strong id="cache">…</strong></span>
+      </div>
+      <div id="error" class="error" role="alert" hidden></div>
+    </header>
+    <main>
+      <div id="crud-root" class="crud-root"></div>
+    </main>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js"></script>
+    <script src="/secrets.js"></script>
+    <script src="/reveal.js"></script>
+    <script src="/import.js"></script>
+    <script src="/keys.js"></script>
+  </body>
+</html>
