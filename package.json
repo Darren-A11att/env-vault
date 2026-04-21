@@ -1,0 +1,62 @@
+{
+  "name": "@darrenallatt/env-vault",
+  "version": "0.1.0",
+  "description": "OS-native SQLite secrets vault with SSH-key master. Replace plaintext API keys in .env with pseudokeys; resolve at runtime.",
+  "license": "MIT",
+  "author": "Darren Allatt",
+  "type": "module",
+  "bin": {
+    "envault": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "node --test --experimental-strip-types test/*.test.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@noble/ciphers": "^1.2.0",
+    "@noble/curves": "^1.8.0",
+    "@noble/hashes": "^1.7.0",
+    "better-sqlite3": "^11.8.0",
+    "commander": "^13.1.0",
+    "dotenv": "^16.4.7",
+    "sshpk": "^1.18.0",
+    "sshpk-agent": "^1.8.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.10.5",
+    "@types/sshpk": "^1.17.4",
+    "typescript": "^5.7.3"
+  },
+  "keywords": [
+    "secrets",
+    "vault",
+    "env",
+    "dotenv",
+    "ssh",
+    "encryption",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Darren-A11att/env-vault"
+  }
+}
