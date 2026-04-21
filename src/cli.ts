@@ -8,6 +8,11 @@ import { rmCmd } from './commands/rm.js';
 import { importCmd } from './commands/import.js';
 import { exportCmd } from './commands/export.js';
 import { runCmd } from './commands/run.js';
+import {
+  identityUnlockCmd,
+  identityForgetCmd,
+  identityShowCmd,
+} from './commands/identity.js';
 
 const program = new Command();
 
@@ -15,7 +20,7 @@ program
   .name('envault')
   .description('OS-native SQLite secrets vault with SSH-key master.')
   .enablePositionalOptions()
-  .version('0.1.0');
+  .version('0.2.0');
 
 program
   .command('init')
@@ -113,6 +118,7 @@ program
   .description('Spawn a child process with pseudokeys resolved to real values in its env. Use -- to separate envault flags from the child command.')
   .option('--env-file <path>', 'Load additional .env file (defaults to ./.env if present)')
   .option('--no-load-env', 'Do not auto-load ./.env')
+  .option('--no-intercept', 'Do not auto-inject the fetch interceptor for Node child processes')
   .argument('<cmd...>', 'Command and arguments to spawn')
   .passThroughOptions(true)
   .action(async (argv: string[], opts) => {
@@ -120,6 +126,46 @@ program
       await runCmd(argv, opts);
     } catch (err) {
       console.error(`envault run: ${(err as Error).message}`);
+      process.exit(1);
+    }
+  });
+
+const identity = program
+  .command('identity')
+  .description('Manage the cached X25519 scalar');
+
+identity
+  .command('unlock')
+  .description('Prompt for passphrase and cache the scalar')
+  .action(async () => {
+    try {
+      await identityUnlockCmd();
+    } catch (err) {
+      console.error(`envault identity unlock: ${(err as Error).message}`);
+      process.exit(1);
+    }
+  });
+
+identity
+  .command('forget')
+  .description('Delete the cached scalar')
+  .action(() => {
+    try {
+      identityForgetCmd();
+    } catch (err) {
+      console.error(`envault identity forget: ${(err as Error).message}`);
+      process.exit(1);
+    }
+  });
+
+identity
+  .command('show')
+  .description('Print fingerprint and cache status')
+  .action(() => {
+    try {
+      identityShowCmd();
+    } catch (err) {
+      console.error(`envault identity show: ${(err as Error).message}`);
       process.exit(1);
     }
   });

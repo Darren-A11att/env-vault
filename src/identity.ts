@@ -1,5 +1,4 @@
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { createInterface } from 'node:readline';
 import sshpk from 'sshpk';
 import { ed25519 } from '@noble/curves/ed25519.js';
@@ -8,12 +7,21 @@ import {
   getEnvaultKeyPath,
   getEnvaultPubPath,
 } from './paths.js';
+import {
+  fingerprintFromPublicKey,
+  cacheScalar,
+  loadCachedScalar,
+} from './identity-cache.js';
 
 export interface Identity {
-  ed25519Seed: Uint8Array;
+  ed25519Seed?: Uint8Array;
   ed25519Pub: Uint8Array;
   x25519Priv: Uint8Array;
   x25519Pub: Uint8Array;
+}
+
+export interface LoadIdentityOpts {
+  forceUncached?: boolean;
 }
 
 export function identityExists(): boolean {
@@ -119,11 +127,66 @@ async function promptPassphrase(keyPath: string): Promise<string> {
   });
 }
 
-export async function loadIdentity(keyPath?: string): Promise<Identity> {
+/**
+ * Read the `.pub` sibling file for a private-key path. Returns the parsed
+ * Ed25519 public key bytes, or `undefined` if the file doesn't exist.
+ */
+function readEd25519PubFromFile(privPath: string): Uint8Array | undefined {
+  const pubPath = `${privPath}.pub`;
+  if (!fs.existsSync(pubPath)) return undefined;
+  try {
+    const parsed = sshpk.parseKey(fs.readFileSync(pubPath, 'utf8'), 'ssh');
+    if (parsed.type !== 'ed25519') return undefined;
+    const parts = parsed.part as unknown as Record<string, { data: Buffer }>;
+    return new Uint8Array(parts.A.data);
+  } catch {
+    return undefined;
+  }
+}
+
+function healPubFile(privPath: string, parsed: sshpk.PrivateKey): void {
+  const pubPath = `${privPath}.pub`;
+  if (fs.existsSync(pubPath)) return;
+  try {
+    const pubStr = parsed.toPublic().toString('ssh') + ' envault_key\n';
+    fs.writeFileSync(pubPath, pubStr, { mode: 0o644 });
+  } catch {
+    // best-effort: if we can't write, just carry on
+  }
+}
+
+export async function loadIdentity(
+  keyPathOrOpts?: string | LoadIdentityOpts,
+  maybeOpts?: LoadIdentityOpts,
+): Promise<Identity> {
+  let keyPath: string | undefined;
+  let opts: LoadIdentityOpts = {};
+  if (typeof keyPathOrOpts === 'string') {
+    keyPath = keyPathOrOpts;
+    opts = maybeOpts ?? {};
+  } else if (keyPathOrOpts) {
+    opts = keyPathOrOpts;
+  }
+
   const resolvedPath = keyPath ?? getEnvaultKeyPath();
   if (!fs.existsSync(resolvedPath)) {
     throw new Error(`SSH key not found at ${resolvedPath}. Run: envault init`);
   }
+
+  // Fast path: if .pub is readable, compute fingerprint and consult the keychain.
+  if (!opts.forceUncached) {
+    const ed25519PubFromFile = readEd25519PubFromFile(resolvedPath);
+    if (ed25519PubFromFile) {
+      const fingerprint = fingerprintFromPublicKey(ed25519PubFromFile);
+      const cached = loadCachedScalar(fingerprint);
+      if (cached) {
+        const x25519Pub = ed25519.utils.toMontgomery(ed25519PubFromFile);
+        return { ed25519Pub: ed25519PubFromFile, x25519Priv: cached, x25519Pub };
+      }
+    }
+  }
+
+  // Slow path: parse the private key file (prompting for a passphrase if needed).
   const buf = fs.readFileSync(resolvedPath);
 
   let parsed: sshpk.PrivateKey;
@@ -150,6 +213,18 @@ export async function loadIdentity(keyPath?: string): Promise<Identity> {
   const ed25519Pub = new Uint8Array(parts.A.data);
   const x25519Priv = ed25519.utils.toMontgomerySecret(ed25519Seed);
   const x25519Pub = ed25519.utils.toMontgomery(ed25519Pub);
+
+  // If the .pub sidecar was missing, heal the install so subsequent runs can hit the cache path.
+  healPubFile(resolvedPath, parsed);
+
+  // Cache the derived scalar. Best-effort — keychain errors must not block vault access.
+  try {
+    const fingerprint = fingerprintFromPublicKey(ed25519Pub);
+    cacheScalar(fingerprint, x25519Priv);
+  } catch {
+    // ignore; caller still gets a working identity
+  }
+
   return { ed25519Seed, ed25519Pub, x25519Priv, x25519Pub };
 }
 
